@@ -1,7 +1,12 @@
 # SANDLINE — Dustline Yard
 
+[![threejs-fps-02](https://make.fun/badge/threejs-fps-02.svg)](https://make.fun/bounty/threejs-fps-02)
+[![rank](https://make.fun/badge/threejs-fps-02/Aldo1q/sandline-fps/rank.svg)](https://make.fun/bounty/threejs-fps-02)
+[![reward](https://make.fun/badge/threejs-fps-02/Aldo1q/sandline-fps/reward.svg)](https://make.fun/bounty/threejs-fps-02)
+
 A round-based tactical FPS in three.js, built for the make.fun
-`threejs-fps-02` bounty. Counter-Strike style, original map, art and names.
+[`threejs-fps-02`](https://make.fun/bounty/threejs-fps-02) bounty.
+Counter-Strike style, original map, art and names.
 
 ## Play
 
