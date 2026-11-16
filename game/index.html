@@ -133,6 +133,58 @@
   #damage-flash.on { animation: dmgflash 450ms ease-out; }
   @keyframes dmgflash { 0% { opacity: 1; } 100% { opacity: 0; } }
 
+  #radio-feed {
+    position: fixed; left: 16px; top: 140px; display: grid; gap: 4px;
+    font-family: var(--font-readout); font-size: 12px; max-width: 320px;
+  }
+  #radio-feed .radio {
+    background: rgba(26, 23, 18, 0.78); border: 1px solid var(--hairline);
+    border-left: 3px solid var(--accent); border-radius: var(--radius-panel);
+    padding: 4px 8px; color: var(--ink); transition: opacity 600ms linear;
+  }
+  #radio-feed .radio.defend { border-left-color: var(--rust); }
+  #radio-feed .radio.fade { opacity: 0; }
+
+  #dmg-dir {
+    position: fixed; left: 50%; top: 50%; width: 150px; height: 150px;
+    transform: translate(-50%, -50%); opacity: 0; transition: opacity 300ms linear;
+    pointer-events: none;
+  }
+  #dmg-dir.on { opacity: 1; }
+  #dmg-dir i {
+    position: absolute; left: 50%; top: 2px; width: 36px; height: 10px;
+    margin-left: -18px; background: #ff5a3c; border-radius: 5px;
+    box-shadow: 0 0 14px rgba(255, 90, 60, 0.9);
+  }
+
+  #flash-overlay {
+    position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none;
+    transition: opacity 1.4s ease-out;
+  }
+
+  #plan-bar {
+    position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-readout); font-size: 12px; letter-spacing: 0.04em;
+    color: var(--accent);
+    background: rgba(26, 23, 18, 0.72); border: 1px solid var(--hairline);
+    border-radius: var(--radius-panel); padding: 5px 12px;
+  }
+
+  #loadout {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    font-family: var(--font-readout); font-size: 12px; color: var(--muted);
+    background: rgba(26, 23, 18, 0.72); border: 1px solid var(--hairline);
+    border-radius: var(--radius-panel); padding: 7px 12px; white-space: nowrap;
+  }
+
+  .dmg-pop {
+    position: fixed; transform: translate(-50%, -50%);
+    font-family: var(--font-readout); font-weight: 700; font-size: 14px;
+    color: var(--ink); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    pointer-events: none;
+  }
+  .dmg-pop.head { color: #ffc266; font-size: 17px; }
+
   .overlay {
     position: fixed; inset: 0; display: grid; place-items: center; padding: 24px;
     background: rgba(26, 23, 18, 0.86); z-index: 10;
@@ -165,16 +217,16 @@
   }
   #buy-menu[hidden] { display: none; }
   #buy-panel {
-    width: min(560px, 100%); padding: 28px; background: var(--surface);
+    width: min(560px, 100%); padding: 20px 28px; background: var(--surface);
     border: 1px solid var(--hairline); border-radius: var(--radius-panel);
   }
-  #buy-panel h2 { margin: 0 0 4px; font-size: 24px; }
-  #buy-panel .buy-sub { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+  #buy-panel h2 { margin: 0 0 4px; font-size: 21px; }
+  #buy-panel .buy-sub { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
   #buy-money { font-family: var(--font-readout); color: var(--accent); font-size: 16px; }
-  #buy-grid { display: grid; gap: 8px; }
+  #buy-grid { display: grid; gap: 6px; }
   .buy-item {
-    display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 10px; align-items: center;
-    text-align: left; padding: 10px 12px; background: var(--canvas);
+    display: grid; grid-template-columns: 28px 1fr auto; gap: 2px 10px; align-items: center;
+    text-align: left; padding: 7px 12px; background: var(--canvas);
     border: 1px solid var(--hairline); border-radius: var(--radius-control);
     color: var(--ink); font: inherit; cursor: pointer;
   }
@@ -197,9 +249,13 @@
   <div id="crosshair"><i></i><i></i><i></i><i></i></div>
   <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
   <canvas id="minimap" width="150" height="110"></canvas>
-  <div id="topbar"><span id="timer-value">1:40</span><span id="score-value">Vanguard 0 — 0 Raiders · Round 1</span><span id="alive-value">▲ 5 · ▼ 5</span></div>
+  <div id="topbar"><span id="timer-value">1:40</span><span id="score-value">Vanguard 0 — 0 Raiders · Round 1 of 9</span><span id="alive-value">▲ 5 · ▼ 5</span></div>
+  <div id="plan-bar">PLAN: PUSH SITE A — YOU: ENTRY</div>
   <div id="money">Money <span id="money-value">$800</span></div>
   <div id="killfeed"></div>
+  <div id="radio-feed"></div>
+  <div id="dmg-dir"><i></i></div>
+  <div id="flash-overlay"></div>
   <div id="health-block">
     <div id="health-bar"><div id="health-fill"></div></div>
     <div id="health-row"><span id="health-num">100</span><span id="armor-row">Kevlar <span id="armor-num">0</span></span></div>
@@ -208,6 +264,7 @@
     <div id="weapon-name">P9 Sidearm</div>
     <div id="ammo-line"><span id="ammo-mag">12</span><span id="ammo-reserve">/ 36</span></div>
   </div>
+  <div id="loadout"></div>
   <div id="banner" hidden><div id="banner-title"></div><div id="banner-sub"></div></div>
   <div id="bomb-status" hidden>💣 BOMB PLANTED — <span id="bomb-timer">35.0s</span></div>
   <div id="plant-bar" hidden><div id="plant-label"></div><div id="plant-track"><div id="plant-fill"></div></div></div>
@@ -217,7 +274,7 @@
 <div id="buy-menu" hidden>
   <div id="buy-panel">
     <h2>Buy phase <span id="buy-money">$800</span></h2>
-    <p class="buy-sub">Spend your money before the round starts. Click an item or press 1–6. Press B to close.</p>
+    <p class="buy-sub">Spend your money before the round starts. Click an item or press 1–9. Press B to close.</p>
     <div id="buy-grid"></div>
   </div>
 </div>
@@ -230,7 +287,7 @@
     <ul class="keys">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move &nbsp; <kbd>Mouse</kbd> Look &nbsp; <kbd>Click</kbd> Fire</li>
       <li><kbd>R</kbd> Reload &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> Crouch &nbsp; <kbd>Space</kbd> Jump</li>
-      <li><kbd>1</kbd>–<kbd>4</kbd> Weapons &nbsp; <kbd>G</kbd> Frag &nbsp; <kbd>T</kbd> Smoke</li>
+      <li><kbd>1</kbd>–<kbd>4</kbd> Weapons &nbsp; <kbd>G</kbd> Frag &nbsp; <kbd>T</kbd> Smoke &nbsp; <kbd>F</kbd> Flashbang</li>
       <li><kbd>E</kbd> (hold) Plant the bomb &nbsp; <kbd>B</kbd> Buy menu</li>
     </ul>
   </section>

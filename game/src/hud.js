@@ -3,6 +3,8 @@
 // never touches the simulation; main.js pushes numbers in and reads the play
 // and buy callbacks out. All reads are cached so the DOM is only written when
 // a value actually changes.
+import * as THREE from 'three';
+
 export function createHud() {
   const $ = (id) => document.getElementById(id);
   const overlay = $('overlay');
@@ -35,6 +37,12 @@ export function createHud() {
   const buyGrid = $('buy-grid');
   const buyMoney = $('buy-money');
   const damageFlash = $('damage-flash');
+  const radioFeed = $('radio-feed');
+  const dmgDir = $('dmg-dir');
+  const flashOverlay = $('flash-overlay');
+  const loadoutEl = $('loadout');
+  const planEl = $('plan-bar');
+  const hudRoot = $('hud');
   const minimap = $('minimap');
   const mmCtx = minimap.getContext('2d');
 
@@ -47,7 +55,74 @@ export function createHud() {
   let lastTimer = -1;
   let lastScore = '';
   let lastAlive = '';
+  let lastLoadout = '';
   let hitTimer = 0;
+  let dmgTimer = 0;
+  let flashTimer = 0;
+
+  // Floating damage popups: 4 pooled divs projected from world space, so a
+  // "HEAD 100" floats over the enemy that was hit. Pooled, never allocated
+  // per hit; updatePopups() is called once per frame by main.js.
+  const popups = [];
+  for (let i = 0; i < 4; i += 1) {
+    const el = document.createElement('div');
+    el.className = 'dmg-pop';
+    el.style.display = 'none';
+    hudRoot.appendChild(el);
+    popups.push({ el, pos: new THREE.Vector3(), left: 0 });
+  }
+  let popupIdx = 0;
+  const projVec = new THREE.Vector3();
+
+  function showDamagePopup(x, y, z, text, head) {
+    const p = popups[popupIdx];
+    popupIdx = (popupIdx + 1) % popups.length;
+    p.pos.set(x, y, z);
+    // Head hits float above the helmet, never over the vest/torso.
+    if (head) p.pos.y += 0.5;
+    p.el.textContent = text;
+    p.el.classList.toggle('head', !!head);
+    p.el.style.display = '';
+    p.left = 1.1;
+  }
+
+  function updatePopups(camera, dt) {
+    for (const p of popups) {
+      if (p.left <= 0) continue;
+      p.left -= dt;
+      if (p.left <= 0) {
+        p.el.style.display = 'none';
+        continue;
+      }
+      projVec.copy(p.pos).project(camera);
+      if (projVec.z > 1) {
+        p.el.style.display = 'none';
+        p.left = 0;
+        continue;
+      }
+      p.el.style.display = '';
+      p.el.style.left = `${(projVec.x * 0.5 + 0.5) * window.innerWidth}px`;
+      p.el.style.top = `${(-projVec.y * 0.5 + 0.5) * window.innerHeight - (1.1 - p.left) * 40}px`;
+      p.el.style.opacity = String(Math.min(1, p.left / 0.4));
+    }
+  }
+
+  // Team plan line under the top bar: "PLAN: PUSH SITE A — YOU: ENTRY".
+  function setPlan(text) {
+    planEl.textContent = text;
+  }
+
+  // Bottom-centre loadout: weapon slots (owned, current highlighted) and
+  // grenade counts, plus cash — the buy economy at a glance, mid-round.
+  function setLoadout(owned, current, grenades, money) {
+    const slots = ['pistol', 'rifle', 'smg', 'sniper']
+      .map((id, i) => `${i + 1} ${owned[id] ? (id === current ? `[${id.toUpperCase()}]` : id.toUpperCase()) : '—'}`)
+      .join('  ');
+    const text = `CASH $${money} · ${slots} · G Frag ×${grenades.frag || 0}  T Smoke ×${grenades.smoke || 0}  F Flash ×${grenades.flash || 0}`;
+    if (text === lastLoadout) return;
+    lastLoadout = text;
+    loadoutEl.textContent = text;
+  }
 
   const OVERLAY_COPY = {
     start: {
@@ -115,7 +190,7 @@ export function createHud() {
   }
 
   function setScore(a, d, round) {
-    const text = `Vanguard ${a} — ${d} Raiders · Round ${round}`;
+    const text = `Vanguard ${a} — ${d} Raiders · Round ${round} of 9`;
     if (text === lastScore) return;
     lastScore = text;
     scoreValue.textContent = text;
@@ -160,6 +235,39 @@ export function createHud() {
     damageFlash.classList.remove('on');
     void damageFlash.offsetWidth;
     damageFlash.classList.add('on');
+  }
+
+  // Radio callouts from the bots: who saw what, where. Teal = Vanguard,
+  // rust = Raiders. Kept to four lines so it never covers the fight.
+  function radioAdd(text, team) {
+    const div = document.createElement('div');
+    div.className = `radio ${team === 'attack' ? 'attack' : 'defend'}`;
+    div.textContent = text;
+    radioFeed.prepend(div);
+    while (radioFeed.children.length > 4) radioFeed.removeChild(radioFeed.lastChild);
+    setTimeout(() => {
+      div.classList.add('fade');
+      setTimeout(() => div.remove(), 600);
+    }, 5000);
+  }
+
+  // Damage direction: a red arc at screen centre rotated toward the shooter,
+  // so the player knows which way to turn. angleDeg 0 = straight ahead.
+  function damageFrom(angleDeg) {
+    dmgDir.style.transform = `translate(-50%, -50%) rotate(${Math.round(angleDeg)}deg)`;
+    dmgDir.classList.add('on');
+    clearTimeout(dmgTimer);
+    dmgTimer = setTimeout(() => dmgDir.classList.remove('on'), 700);
+  }
+
+  // Flashbang white-out: strength 0..1, fades back over ~1.4 s.
+  function flashWhite(strength) {
+    flashOverlay.style.transition = 'none';
+    flashOverlay.style.opacity = String(Math.min(1, strength));
+    void flashOverlay.offsetWidth;
+    flashOverlay.style.transition = '';
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => { flashOverlay.style.opacity = '0'; }, 80);
   }
 
   function showBanner(title, sub, good) {
@@ -305,6 +413,13 @@ export function createHud() {
     hitMarker,
     setSpread,
     flashDamage,
+    radioAdd,
+    damageFrom,
+    flashWhite,
+    showDamagePopup,
+    updatePopups,
+    setPlan,
+    setLoadout,
     showBanner,
     hideBanner,
     showBomb,

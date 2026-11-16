@@ -32,27 +32,63 @@ export const WEAPON_DEFS = {
   },
 };
 
-export const BUYABLE = ['rifle', 'smg', 'sniper'];
-
 export function createWeapon(camera) {
   const gripMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.hairline), roughness: 0.7, metalness: 0.2 });
   const bodyMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.ink), roughness: 0.5, metalness: 0.35 });
   const accentMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.accent), roughness: 0.5, metalness: 0.3 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(0xc9a06a), roughness: 0.9, metalness: 0 });
+  const sleeveMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(PALETTE.accent), roughness: 0.85, metalness: 0.05 });
 
   const model = new THREE.Group();
   model.position.set(0.24, -0.2, -0.42);
   camera.add(model);
 
-  const flash = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.26, 0.26),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(PALETTE.accent), transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }),
-  );
-  flash.position.set(0.24, -0.18, -0.95);
-  flash.visible = false;
-  camera.add(flash);
+  // The player's own arms, holding the gun: two sleeved forearms reaching
+  // from below the frame to the receiver, so the viewmodel reads as a person,
+  // not a floating gun. They sit low and far forward so only their ends and
+  // the hands show at the bottom edge of the frame.
+  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.22), sleeveMat);
+  armR.position.set(0.31, -0.4, -0.34);
+  armR.rotation.x = 0.9;
+  const handR = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.09), skinMat);
+  handR.position.set(0.27, -0.28, -0.5);
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.22), sleeveMat);
+  armL.position.set(0.1, -0.42, -0.42);
+  armL.rotation.x = 1.0;
+  armL.rotation.y = 0.3;
+  const handL = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.09), skinMat);
+  handL.position.set(0.19, -0.29, -0.62);
+  camera.add(armR, handR, armL, handL);
 
-  const flashLight = new THREE.PointLight(new THREE.Color(PALETTE.accent), 0, 5);
-  flashLight.position.set(0.24, -0.16, -0.6);
+  // Muzzle flash: two crossed planes with a soft star texture (bright core,
+  // transparent edges, additive) plus a point light, so the shot reads as a
+  // star burst and lights the wall ahead — never a solid yellow board.
+  const flashCanvas = document.createElement('canvas');
+  flashCanvas.width = 64;
+  flashCanvas.height = 64;
+  const fg = flashCanvas.getContext('2d');
+  const grad = fg.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, 'rgba(255,240,200,1)');
+  grad.addColorStop(0.35, 'rgba(255,194,102,0.9)');
+  grad.addColorStop(1, 'rgba(255,150,60,0)');
+  fg.fillStyle = grad;
+  fg.fillRect(0, 0, 64, 64);
+  fg.fillStyle = 'rgba(255,220,150,0.9)';
+  fg.fillRect(30, 4, 4, 56);
+  fg.fillRect(4, 30, 56, 4);
+  const flashTex = new THREE.CanvasTexture(flashCanvas);
+  const flashMat = new THREE.MeshBasicMaterial({ map: flashTex, color: new THREE.Color(PALETTE.flash), transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+  const flash = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), flashMat);
+  flash.position.set(0.24, -0.18, -1.0);
+  flash.visible = false;
+  const flash2 = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), flashMat);
+  flash2.position.copy(flash.position);
+  flash2.rotation.y = Math.PI / 2;
+  flash2.visible = false;
+  camera.add(flash, flash2);
+
+  const flashLight = new THREE.PointLight(new THREE.Color(PALETTE.flash), 0, 5.5);
+  flashLight.position.set(0.24, -0.16, -1.1);
   camera.add(flashLight);
 
   let def = WEAPON_DEFS.pistol;
@@ -81,8 +117,10 @@ export function createWeapon(camera) {
     model.position.y = -0.2 - state.switching * 0.12;
     model.rotation.x = state.kick * 2.2;
     flash.visible = state.flash > 0;
+    flash2.visible = state.flash > 0;
     flash.rotation.z = state.flash * 30;
-    flashLight.intensity = state.flash > 0 ? 18 : 0;
+    flash2.rotation.z = -state.flash * 30;
+    flashLight.intensity = state.flash > 0 ? 7 : 0;
     if (state.reloadLeft > 0) {
       state.reloadLeft = Math.max(0, state.reloadLeft - dt);
       model.rotation.x = -0.55 * Math.min(1, (def.reloadTime - state.reloadLeft) * 2);
@@ -102,9 +140,6 @@ export function createWeapon(camera) {
     },
     step,
     ready() {
-      return state.mag > 0 && state.cooldown === 0 && state.reloadLeft === 0 && state.switching === 0;
-    },
-    canFire() {
       return state.mag > 0 && state.cooldown === 0 && state.reloadLeft === 0 && state.switching === 0;
     },
     pullTrigger() {

@@ -7,6 +7,7 @@ import { overlaps } from './collision.js';
 
 const GRAVITY = 14;
 const FRAG_FUSE = 1.6;
+const FLASH_FUSE = 1.4;
 const FRAG_RADIUS = 7;
 const FRAG_MAX = 90;
 const SMOKE_TIME = 12;
@@ -19,24 +20,49 @@ export function createGrenades(scene, colliders, meshes) {
   const items = [];
   const clouds = [];
 
+  // Soft smoke: one radial-gradient sprite texture, shared by every puff.
+  // Sprites are camera-facing billboards, so the cloud reads as a soft
+  // plume instead of a cluster of hard low-poly spheres. Rendering only —
+  // the LOS spheres in cloud.puffs are unchanged.
+  const smokeTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 4, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(255,255,255,0.85)');
+    grad.addColorStop(0.55, 'rgba(255,255,255,0.38)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  })();
+
   function spawnCloud(center) {
+    // A dense wall of overlapping soft puffs, 0.85 opacity, big enough
+    // that a lane through it reads as closed — and bot LOS treats each puff
+    // as a sphere, so the cloud really does blind (collision.js).
     const puffs = [];
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(0xd8d2c4), transparent: true, opacity: 0.82, roughness: 1, depthWrite: false,
+    const sizes = [];
+    const mat = new THREE.SpriteMaterial({
+      map: smokeTex, color: new THREE.Color(0xe8e2d4), transparent: true, opacity: 0.85, depthWrite: false,
     });
-    for (let i = 0; i < 14; i += 1) {
-      const p = new THREE.Mesh(new THREE.SphereGeometry(0.9 + Math.random() * 0.9, 10, 8), mat);
+    const cloudMeshes = [];
+    for (let i = 0; i < 18; i += 1) {
+      const size = 0.8 + Math.random() * 0.6;
+      const p = new THREE.Sprite(mat);
       p.position.set(
-        center.x + (Math.random() * 2 - 1) * 2.2,
-        0.6 + Math.random() * 1.8,
-        center.z + (Math.random() * 2 - 1) * 2.2,
+        center.x + (Math.random() * 2 - 1) * 3.0,
+        0.5 + Math.random() * 1.9,
+        center.z + (Math.random() * 2 - 1) * 3.0,
       );
-      p.scale.y = 0.8;
+      p.scale.set(size * 2.6, size * 2.1, 1);
       group.add(p);
       puffs.push(p.position.clone());
+      sizes.push(size);
+      cloudMeshes.push(p);
     }
-    const cloud = { center: center.clone(), puffs, meshes: [], radius: 3.2, left: SMOKE_TIME, active: true };
-    for (let i = 0; i < 14; i += 1) cloud.meshes.push(group.children[group.children.length - 14 + i]);
+    const cloud = { center: center.clone(), puffs, meshes: cloudMeshes, sizes, radius: 3.6, left: SMOKE_TIME, age: 0, active: true };
     clouds.push(cloud);
     return cloud;
   }
@@ -49,7 +75,7 @@ export function createGrenades(scene, colliders, meshes) {
       kind,
       mesh,
       vel: dir.clone().multiplyScalar(speed).add(new THREE.Vector3(0, 3.2, 0)),
-      fuse: FRAG_FUSE,
+      fuse: kind === 'flash' ? FLASH_FUSE : FRAG_FUSE,
       done: false,
     });
   }
@@ -68,7 +94,7 @@ export function createGrenades(scene, colliders, meshes) {
     return hits;
   }
 
-  function step(dt, onFrag, onSmoke) {
+  function step(dt, onFrag, onFlash) {
     for (const item of items) {
       if (item.done) continue;
       item.vel.y -= GRAVITY * dt;
@@ -97,10 +123,9 @@ export function createGrenades(scene, colliders, meshes) {
         item.done = true;
         group.remove(item.mesh);
         if (item.kind === 'frag') onFrag(item.mesh.position.clone());
-        else {
-          spawnCloud(item.mesh.position.clone());
-          if (onSmoke) onSmoke();
-        }
+        else if (item.kind === 'flash') {
+          if (onFlash) onFlash(item.mesh.position.clone());
+        } else spawnCloud(item.mesh.position.clone());
       }
     }
     for (let i = items.length - 1; i >= 0; i -= 1) {
@@ -109,8 +134,15 @@ export function createGrenades(scene, colliders, meshes) {
     for (let i = clouds.length - 1; i >= 0; i -= 1) {
       const c = clouds[i];
       c.left -= dt;
+      c.age += dt;
       const fade = Math.min(1, c.left / 2);
-      for (const m of c.meshes) m.material.opacity = 0.82 * fade;
+      for (let j = 0; j < c.meshes.length; j += 1) {
+        const m = c.meshes[j];
+        m.material.opacity = 0.85 * fade;
+        // Slow breathing so the cloud reads as volume, not a still ball.
+        const s = 1 + 0.05 * Math.sin(c.age * 1.3 + j * 1.7);
+        m.scale.set(c.sizes[j] * 2.6 * s, c.sizes[j] * 2.1 * s, 1);
+      }
       if (c.left <= 0) {
         c.active = false;
         for (const m of c.meshes) group.remove(m);
@@ -129,13 +161,11 @@ export function createGrenades(scene, colliders, meshes) {
   return {
     throwGrenade,
     explodeFrag,
+    spawnCloudAt: spawnCloud,
     step,
     reset,
     get clouds() {
       return clouds;
-    },
-    get active() {
-      return items.length > 0 || clouds.length > 0;
     },
   };
 }

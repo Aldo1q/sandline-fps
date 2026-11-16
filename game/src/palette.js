@@ -2,7 +2,7 @@
 // dark steel, one teal accent for the player's team and the HUD. Every colour
 // the game uses is named here; index.html's CSS uses the same six base names.
 export const PALETTE = {
-  canvas: '#1a1712', // sky / fog / page background
+  canvas: '#1b1426', // dusk sky / fog / page background
   surface: '#3a332a', // walls, ground shadow
   hairline: '#4c4436', // trim, crates
   ink: '#efe7d6', // text, light metal
@@ -17,10 +17,10 @@ export const PALETTE = {
   containerBlue: '#33566b',
   containerGreen: '#4a5d3a',
   wood: '#6b4e2e', // crates
-  sun: '#ffd9a0', // warm key light
-  sky: '#d8c49a', // horizon
+  sun: '#ff9e57', // low dusk sun
+  sky: '#8f7ba8', // cool dusk hemisphere
+  flash: '#ffc266', // muzzle flash amber
+  shadow: '#5d7ea3', // cool shadow fill
+  laneWest: '#2fb3a3', // west lane trim = site A side
+  laneEast: '#b0542f', // east lane trim = site B side
 };
-
-export function color(name) {
-  return PALETTE[name];
-}

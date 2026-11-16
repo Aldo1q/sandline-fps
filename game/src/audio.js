@@ -107,6 +107,10 @@ export function createAudio() {
       tone(880, 0.08, 0.25, 'sine');
       setTimeout(() => tone(1320, 0.12, 0.25, 'sine'), 110);
     },
+    flash() {
+      noise(0.25, 4000, 0.5, 'highpass');
+      tone(3200, 0.5, 0.12, 'sine', 2400);
+    },
     defuse() {
       tone(660, 0.08, 0.25, 'sine');
       setTimeout(() => tone(990, 0.12, 0.25, 'sine'), 110);
